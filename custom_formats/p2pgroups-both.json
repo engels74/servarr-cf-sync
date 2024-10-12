@@ -1,0 +1,20 @@
+{
+  "name": "P2P Groups (Movie/TV)",
+  "cfSync_version": "0.0.1",
+  "cfSync_radarr": true,
+  "cfSync_sonarr": true,
+  "cfSync_score": 1,
+  "cfSync_instances": ["Radarr_003", "Sonarr_003"],
+  "includeCustomFormatWhenRenaming": false,
+  "specifications": [
+    {
+      "name": "[BLOCK1]",
+      "implementation": "ReleaseTitleSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "-KI11|-EGEN|-RTBYTES|-TWA|-DRAUGR|-RTBYTES|-DBYTES|-NiDHUG|-DKe|-DKV|-BANDOLEROS|-RAPiDCOWS|-BONDE|-BTN|-UC4DB|-OUTLAWS|-YOLO|-ROBiNSON|-GRACiOUS|-PiTBULL|-TWASERiES|-SHOWTiME|-ROCKETRACCOON"
+      }
+    }
+  ]
+}
