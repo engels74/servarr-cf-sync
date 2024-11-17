@@ -1,6 +1,6 @@
 {
   "name": "P2P Groups (Movie/TV)",
-  "cfSync_version": "0.0.1",
+  "cfSync_version": "0.0.2",
   "cfSync_radarr": true,
   "cfSync_sonarr": true,
   "cfSync_score": 1,
@@ -13,7 +13,7 @@
       "negate": false,
       "required": false,
       "fields": {
-        "value": "-KI11|-EGEN|-RTBYTES|-TWA|-DRAUGR|-RTBYTES|-DBYTES|-NiDHUG|-DKe|-DKV|-BANDOLEROS|-RAPiDCOWS|-BONDE|-BTN|-UC4DB|-OUTLAWS|-YOLO|-ROBiNSON|-GRACiOUS|-PiTBULL|-TWASERiES|-SHOWTiME|-ROCKETRACCOON"
+        "value": "-KI11|-EGEN|-RTBYTES|-TWA|-DRAUGR|-RTBYTES|-DBYTES|-NiDHUG|-DKe|-DKV|-BANDOLEROS|-RAPiDCOWS|-BONDE|-BTN|-UC4DB|-OUTLAWS|-YOLO|-ROBiNSON|-GRACiOUS|-PiTBULL|-TWASERiES|-SHOWTiME|-ROCKETRACCOON|-WeBaDaBaDoo"
       }
     }
   ]
