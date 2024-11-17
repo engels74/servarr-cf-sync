@@ -1,10 +1,9 @@
 {
   "name": "P2P Groups (Movie/TV)",
-  "cfSync_version": "0.0.2",
+  "cfSync_version": "0.0.3",
   "cfSync_radarr": true,
   "cfSync_sonarr": true,
   "cfSync_score": 1,
-  "cfSync_instances": ["Radarr_003", "Sonarr_003"],
   "includeCustomFormatWhenRenaming": false,
   "specifications": [
     {
