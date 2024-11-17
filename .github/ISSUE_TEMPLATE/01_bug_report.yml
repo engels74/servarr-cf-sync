@@ -1,0 +1,89 @@
+name: Bug Report
+description: "Found a bug in servarr-cf-sync? Please search our open issues and documentation first to ensure this isn't already a known issue."
+labels: ["bug"]
+title: "Issue: "
+body:
+  - type: checkboxes
+    attributes:
+      label: "Pre-submission Checklist"
+      options:
+        - label: "I have searched [servarr-cf-sync issues](https://github.com/engels74/servarr-cf-sync/issues) and found no duplicates"
+          required: true
+        - label: "I have reviewed the [servarr-cf-sync Wiki](https://github.com/engels74/servarr-cf-sync/wiki)"
+          required: true
+
+  - type: dropdown
+    id: "deployment"
+    attributes:
+      label: "Deployment Method"
+      description: "How are you running servarr-cf-sync?"
+      multiple: false
+      options:
+        - GitHub Actions (Recommended)
+        - Manual Setup
+    validations:
+      required: true
+
+  - type: textarea
+    id: "describe-the-bug"
+    attributes:
+      label: "Bug Description"
+      description: "A clear and concise description of what the bug is."
+      placeholder: "Describe the bug and what you expected to happen."
+    validations:
+      required: true
+
+  - type: textarea
+    id: "to-reproduce"
+    attributes:
+      label: "Steps to Reproduce"
+      description: "Help us understand exactly how to trigger this bug."
+      placeholder: |
+        1. Configure servarr-cf-sync with '...'
+        2. Trigger the GitHub Actions workflow '...'
+        3. See error '...'
+    validations:
+      required: true
+
+  - type: input
+    id: "github-actions-link"
+    attributes:
+      label: "Failed GitHub Actions Run"
+      description: "Provide a link to the failed GitHub Actions run for easier troubleshooting."
+      placeholder: "https://github.com/username/repo/actions/runs/123456789"
+    validations:
+      required: true
+
+  - type: input
+    id: "fork-repo-link"
+    attributes:
+      label: "Forked Repository Link"
+      description: "Provide a link to your forked repository where the bug occurs."
+      placeholder: "https://github.com/yourusername/servarr-cf-sync"
+    validations:
+      required: true
+
+  - type: textarea
+    id: "screenshots"
+    attributes:
+      label: "Screenshots"
+      description: "If applicable, add screenshots to help explain your problem."
+    validations:
+      required: false
+
+  - type: input
+    id: "version"
+    attributes:
+      label: "servarr-cf-sync Version"
+      description: "What version of servarr-cf-sync are you using?"
+      placeholder: "v0.0.0"
+    validations:
+      required: true
+
+  - type: textarea
+    id: "additional-context"
+    attributes:
+      label: "Additional Context"
+      description: "Add any other context about the problem here."
+    validations:
+      required: false
