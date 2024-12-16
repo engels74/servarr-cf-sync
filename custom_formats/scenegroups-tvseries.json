@@ -1,6 +1,6 @@
 {
   "name": "Scene Groups (TV)",
-  "cfSync_version": "0.0.1",
+  "cfSync_version": "0.0.2",
   "cfSync_radarr": false,
   "cfSync_sonarr": true,
   "cfSync_score": 5,
@@ -48,7 +48,7 @@
       "negate": false,
       "required": false,
       "fields": {
-        "value": "-SOMERSAULT|-CONDRAGULATIONS|-LAZYCUNTS|-SLAY|-loriousMongoose|-EXTRALAZYCUNTS|-CapableGoldfish|-GreedyCorgi|-CODSWALLOP|-WAGWAN|-POPPYCOCK|-AntiqueCow|-AstuteWoodpecker|-IntrepidBandicoot|-DeviousWallaby|-31|-TheFrail|-RUGGED|-FREQUENCY|-OMERANIANS|-HARDHiTS|-TWOLEFTFEET|-CASUALTY|-TWOLEFTHANDS|-PUBLICO|-GAMENiGHT|-SPETSNAZ|-KAWAII|-HOTDOGWATER|-CHEEKY|-VROMVROM|-B0UNCE|-DRDK|-TV2DK|-FFD|-SKANK|-B0UNCE|-KIDENGEE|-CRACKLED|-SUBSCRiBE|-JOAN|-NiGHTNiNJAS|-JAVLAR"
+        "value": "-SOMERSAULT|-CONDRAGULATIONS|-LAZYCUNTS|-SLAY|-loriousMongoose|-EXTRALAZYCUNTS|-CapableGoldfish|-GreedyCorgi|-CODSWALLOP|-WAGWAN|-POPPYCOCK|-AntiqueCow|-AstuteWoodpecker|-IntrepidBandicoot|-DeviousWallaby|-31|-TheFrail|-RUGGED|-FREQUENCY|-OMERANIANS|-HARDHiTS|-TWOLEFTFEET|-CASUALTY|-TWOLEFTHANDS|-PUBLICO|-GAMENiGHT|-SPETSNAZ|-KAWAII|-HOTDOGWATER|-CHEEKY|-VROMVROM|-B0UNCE|-DRDK|-TV2DK|-FFD|-SKANK|-B0UNCE|-KIDENGEE|-CRACKLED|-SUBSCRiBE|-JOAN|-NiGHTNiNJAS|-JAVLAR|-RRH"
       }
     }
   ]
