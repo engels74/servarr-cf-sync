@@ -1,6 +1,6 @@
 {
   "name": "Scene Groups (Movies)",
-  "cfSync_version": "0.0.1",
+  "cfSync_version": "0.0.2",
   "cfSync_radarr": true,
   "cfSync_sonarr": false,
   "cfSync_score": 5,
@@ -48,7 +48,7 @@
       "negate": false,
       "required": false,
       "fields": {
-        "value": "-ALKALiNE|-DANiSHiT|-4KDVS|-WOU|-HTFS|-AccomplishedYak|-EKOLLON|-EXiLE|-DeliriousDolphin|-RadicalRaccoon|-COALESCENCE|-UNDERTAKERS|-WATCHABLE|-BASES|-TSMC|-RABiDS|-INSURRECTION|-BABIEZ|-LWRTD|-BETTY|-MALUS|-MEHH|-GRUNDiG|-PRiSTiNE|-SEGMENT|-RMX"
+        "value": "-ALKALiNE|-DANiSHiT|-4KDVS|-WOU|-HTFS|-AccomplishedYak|-EKOLLON|-EXiLE|-DeliriousDolphin|-RadicalRaccoon|-COALESCENCE|-UNDERTAKERS|-WATCHABLE|-BASES|-TSMC|-RABiDS|-INSURRECTION|-BABIEZ|-LWRTD|-BETTY|-MALUS|-MEHH|-GRUNDiG|-PRiSTiNE|-SEGMENT|-RMX|-SHARD|-HARMONiES|-GBS"
       }
     }
   ]
