@@ -40,6 +40,8 @@ For detailed instructions, please refer to our [Wiki](../../wiki).
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
-## 📄 License
+## ⚖️ License
 
-This project is licensed under the GNU Affero General Public License v3.0 (AGPL-3.0) - see the [LICENSE](LICENSE) file for details.
+[![GNU AGPLv3 Image](https://www.gnu.org/graphics/agplv3-155x51.png)](https://www.gnu.org/licenses/agpl-3.0.en.html)
+
+This project is licensed under the AGPLv3 License - see the LICENSE file for details.
