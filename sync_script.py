@@ -15,33 +15,37 @@ class VersionManager:
         self.version_file = version_file
         self.versions = self.load_versions()
 
-    # Loads version information from a JSON file
     def load_versions(self) -> Dict[str, semver.VersionInfo]:
-        try:
-            if os.path.exists(self.version_file):
-                with open(self.version_file, 'r') as f:
-                    version_data = json.load(f)
-                    # Parse version strings into semver.VersionInfo objects
-                    return {k: semver.VersionInfo.parse(v) for k, v in version_data.items()}
+        if not os.path.exists(self.version_file):
+            logging.info(f"No {self.version_file} found, starting fresh")
             return {}
+            
+        try:
+            with open(self.version_file, 'r') as f:
+                version_data = json.load(f)
+                return {k: semver.VersionInfo.parse(v) for k, v in version_data.items()}
         except json.JSONDecodeError:
-            logging.error(f"Error parsing {self.version_file}. File may be corrupted.")
-            raise
+            logging.warning(f"Malformed {self.version_file}, starting fresh")
+            return {}
         except Exception as e:
             logging.error(f"Error loading versions: {str(e)}")
-            raise
+            return {}
 
-    # Saves current version information to the JSON file
     def save_versions(self):
         try:
             with open(self.version_file, 'w') as f:
-                # Convert VersionInfo objects back to strings for JSON serialization
-                json.dump({k: str(v) for k, v in self.versions.items()}, f)
+                json.dump({k: str(v) for k, v in self.versions.items()}, f, indent=4)
         except Exception as e:
             logging.error(f"Error saving versions: {str(e)}")
             raise
 
-    # Updates the version for a specific custom format file
+    def cleanup_versions(self, existing_files: List[str]):
+        removed = set(self.versions.keys()) - set(existing_files)
+        if removed:
+            logging.info(f"Removing versions for non-existent files: {', '.join(removed)}")
+            self.versions = {k: v for k, v in self.versions.items() if k in existing_files}
+            self.save_versions()
+
     def update_version(self, filename: str, new_version: semver.VersionInfo):
         self.versions[filename] = new_version
         self.save_versions()
@@ -128,41 +132,77 @@ class CustomFormatSyncer:
             logging.error(f"Error loading custom formats: {str(e)}")
             raise
 
-    # Main synchronization method for all custom formats
     def sync_custom_formats(self, instances: List[Tuple[str, str, str]]):
         try:
             custom_formats = self.load_custom_formats()
+            if not custom_formats:
+                logging.warning("No custom formats found to sync")
+                return
+
+            # Clean up versions for non-existent files
+            self.version_manager.cleanup_versions(list(custom_formats.keys()))
+            
+            # Find the latest version across all formats
+            latest_version = semver.VersionInfo.parse('0.0.0')
             for filename, format_data in custom_formats.items():
-                file_version = semver.VersionInfo.parse(format_data.get('cfSync_version', '0.0.0'))
-                stored_version = self.version_manager.versions.get(filename, semver.VersionInfo.parse('0.0.0'))
+                if filename == '_template.json':
+                    continue
+                try:
+                    version = semver.VersionInfo.parse(format_data.get('cfSync_version', '0.0.0'))
+                    if version > latest_version:
+                        latest_version = version
+                except ValueError as e:
+                    logging.error(f"Invalid version in {filename}: {str(e)}")
+                    continue
+            
+            for filename, format_data in custom_formats.items():
+                try:
+                    # Skip template file
+                    if filename == '_template.json':
+                        logging.info("Skipping _template.json")
+                        continue
 
-                if file_version > stored_version:
-                    logging.info(f"Updates detected in {filename}. Syncing...")
-                    for instance_name, url, api_key in instances:
-                        if not self.should_sync_to_instance(format_data, instance_name):
-                            logging.info(f"Skipping {filename} for {instance_name} based on cfSync settings.")
-                            continue
+                    file_version = semver.VersionInfo.parse(format_data.get('cfSync_version', '0.0.0'))
+                    stored_version = self.version_manager.versions.get(filename, semver.VersionInfo.parse('0.0.0'))
 
-                        logging.info(f"Syncing custom formats for {instance_name}")
-                        client = APIClient(url, api_key)
+                    # Sync if:
+                    # 1. File version is newer than stored version
+                    # 2. File version is behind latest version (needs alignment)
+                    if file_version > stored_version or file_version < latest_version:
+                        if file_version < latest_version:
+                            logging.warning(f"{filename} version {file_version} is behind latest version {latest_version}")
                         
-                        try:
-                            existing_formats = client.get_custom_formats()
-                            formatted_custom_format = self.prepare_format_for_sync(format_data)
-                            synced_format = self.sync_format(client, existing_formats, formatted_custom_format)
-                            
-                            if synced_format and 'cfSync_score' in format_data:
-                                self.sync_format_score(client, synced_format, format_data['cfSync_score'])
-                            
-                            logging.info(f"Custom formats synced successfully for {instance_name}")
-                        except requests.RequestException as e:
-                            logging.error(f"Error syncing custom formats for {instance_name}: {str(e)}")
-                            raise
-                    
-                    self.version_manager.update_version(filename, file_version)
-                    logging.info(f"Updated {filename} to version {file_version}")
-                else:
-                    logging.info(f"No updates needed for {filename}")
+                        for instance_name, url, api_key in instances:
+                            if not self.should_sync_to_instance(format_data, instance_name):
+                                logging.info(f"Skipping {filename} for {instance_name} based on cfSync settings")
+                                continue
+
+                            client = APIClient(url, api_key)
+                            try:
+                                existing_formats = client.get_custom_formats()
+                                formatted_custom_format = self.prepare_format_for_sync(format_data)
+                                synced_format = self.sync_format(client, existing_formats, formatted_custom_format)
+                                
+                                if synced_format and 'cfSync_score' in format_data:
+                                    self.sync_format_score(client, synced_format, format_data['cfSync_score'])
+                                
+                                logging.info(f"Synced {filename} to {instance_name}")
+                            except requests.RequestException as e:
+                                logging.error(f"Error syncing {filename} to {instance_name}: {str(e)}")
+                                continue
+                        
+                        self.version_manager.update_version(filename, file_version)
+                        logging.info(f"Updated {filename} to version {file_version}")
+                    else:
+                        logging.info(f"No updates needed for {filename} (current: {file_version})")
+
+                except ValueError as e:
+                    logging.error(f"Invalid version format in {filename}: {str(e)}")
+                    continue
+                except Exception as e:
+                    logging.error(f"Error processing {filename}: {str(e)}")
+                    continue
+
         except Exception as e:
             logging.error(f"An error occurred during sync process: {str(e)}")
             raise
