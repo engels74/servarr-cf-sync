@@ -20,6 +20,18 @@ This project provides a GitHub Actions workflow to automatically sync custom for
 - Version tracking to ensure only updated formats are synced
 - Automated syncing using GitHub Actions
 
+## 📋 Custom Format Template
+
+A `_template.json` file is provided in the `custom_formats/` directory to help you create your own custom formats. The template includes:
+
+- Required and optional fields with documentation
+- Version handling using `cfSync_version` for automatic updates
+- Instance targeting options (`cfSync_radarr`, `cfSync_sonarr`, `cfSync_instances`)
+- Score management with `cfSync_score`
+- Example specification structure
+
+Simply copy `_template.json`, rename it, and modify according to your needs. The version in `version.json` will be automatically updated based on your custom format's `cfSync_version`.
+
 ## 🚀 Quick Start
 
 1. Fork this repository (use the [template-fork](https://github.com/engels74/servarr-cf-sync/tree/template-fork) branch)

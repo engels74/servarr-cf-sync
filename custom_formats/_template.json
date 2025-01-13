@@ -1,0 +1,21 @@
+{
+	"name": "Template Custom Format",
+	"cfSync_version": "0.0.1",
+	"cfSync_radarr": true,
+	"cfSync_sonarr": true,
+	"cfSync_score": 0,
+	"includeCustomFormatWhenRenaming": false,
+	"specifications": [
+		{
+			"name": "Example Match",
+			"implementation": "ReleaseTitleSpecification",
+			"negate": false,
+			"required": false,
+			"fields": {
+				"value": "pattern-to-match"
+			}
+		}
+	]
+}
+
+
