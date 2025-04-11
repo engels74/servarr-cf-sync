@@ -4,26 +4,73 @@ import os
 import requests
 import semver
 import sys
-from typing import Dict, List, Tuple
+from typing import TypedDict, cast, NotRequired, Literal
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
+# Type definitions
+class FormatItem(TypedDict):
+    format: int
+    score: int
+
+class QualityProfile(TypedDict):
+    id: int
+    name: str
+    formatItems: list[FormatItem]
+
+# Define more specific types for specifications
+class Field(TypedDict):
+    name: str
+    value: str
+
+class Specification(TypedDict):
+    name: str
+    implementation: str
+    negate: bool
+    required: bool
+    fields: list[Field]
+
+class CustomFormat(TypedDict):
+    id: int
+    name: str
+    includeCustomFormatWhenRenaming: NotRequired[bool]
+    specifications: NotRequired[list[Specification]]
+
+class FormatData(TypedDict, total=False):
+    name: str
+    includeCustomFormatWhenRenaming: bool
+    specifications: list[Specification]
+    cfSync_version: str
+    cfSync_score: int
+    cfSync_instances: list[str]
+    cfSync_radarr: bool
+    cfSync_sonarr: bool
+
+# We need a dictionary class that can handle the format data for API interactions
+class FormatDict(dict[str, object]):
+    pass
+
 # Manages version information for custom formats
 class VersionManager:
     def __init__(self, version_file: str = 'version.json'):
-        self.version_file = version_file
-        self.versions = self.load_versions()
+        self.version_file: str = version_file
+        self.versions: dict[str, semver.VersionInfo] = self.load_versions()
 
-    def load_versions(self) -> Dict[str, semver.VersionInfo]:
+    def load_versions(self) -> dict[str, semver.VersionInfo]:
         if not os.path.exists(self.version_file):
             logging.info(f"No {self.version_file} found, starting fresh")
             return {}
             
         try:
             with open(self.version_file, 'r') as f:
-                version_data = json.load(f)
-                return {k: semver.VersionInfo.parse(v) for k, v in version_data.items()}
+                # Read version data as dict[str, str]
+                version_data: dict[str, str] = json.load(f)
+                result: dict[str, semver.VersionInfo] = {}
+                # Convert string values to VersionInfo objects
+                for k, v in version_data.items():
+                    result[k] = semver.VersionInfo.parse(v)
+                return result
         except json.JSONDecodeError:
             logging.warning(f"Malformed {self.version_file}, starting fresh")
             return {}
@@ -31,7 +78,7 @@ class VersionManager:
             logging.error(f"Error loading versions: {str(e)}")
             return {}
 
-    def save_versions(self):
+    def save_versions(self) -> None:
         try:
             with open(self.version_file, 'w') as f:
                 json.dump({k: str(v) for k, v in self.versions.items()}, f, indent=4)
@@ -39,38 +86,40 @@ class VersionManager:
             logging.error(f"Error saving versions: {str(e)}")
             raise
 
-    def cleanup_versions(self, existing_files: List[str]):
+    def cleanup_versions(self, existing_files: list[str]) -> None:
         removed = set(self.versions.keys()) - set(existing_files)
         if removed:
             logging.info(f"Removing versions for non-existent files: {', '.join(removed)}")
             self.versions = {k: v for k, v in self.versions.items() if k in existing_files}
             self.save_versions()
 
-    def update_version(self, filename: str, new_version: semver.VersionInfo):
+    def update_version(self, filename: str, new_version: semver.VersionInfo) -> None:
         self.versions[filename] = new_version
         self.save_versions()
 
 # Handles API communication with Radarr/Sonarr instances
 class APIClient:
     def __init__(self, base_url: str, api_key: str):
-        self.base_url = base_url
-        self.api_key = api_key
-        self.session = requests.Session()
+        self.base_url: str = base_url
+        self.api_key: str = api_key
+        self.session: requests.Session = requests.Session()
         self.session.headers.update({'X-Api-Key': self.api_key})
 
     # Retrieves all custom formats from the instance
-    def get_custom_formats(self) -> List[Dict]:
+    def get_custom_formats(self) -> list[CustomFormat]:
+        response: requests.Response | None = None
         try:
             response = self.session.get(f'{self.base_url}/api/v3/customformat')
             response.raise_for_status()
-            return response.json()
+            return cast(list[CustomFormat], response.json())
         except requests.RequestException as e:
             logging.error(f"Error fetching custom formats: {e}")
-            logging.error(f"Response content: {response.text if 'response' in locals() else 'No response'}")
+            logging.error(f"Response content: {response.text if response else 'No response'}")
             raise
 
     # Updates an existing custom format or creates a new one
-    def update_custom_format(self, custom_format: Dict) -> Dict:
+    def update_custom_format(self, custom_format: FormatDict) -> CustomFormat:
+        response: requests.Response | None = None
         try:
             # Determine if we're updating an existing format or creating a new one
             if 'id' in custom_format:
@@ -82,30 +131,30 @@ class APIClient:
 
             logging.debug(f"Payload being sent: {json.dumps(custom_format, indent=2)}")
             response.raise_for_status()
-            return response.json()
+            return cast(CustomFormat, response.json())
         except requests.RequestException as e:
             logging.error(f"Error updating custom format: {e}")
-            logging.error(f"Response status code: {response.status_code if 'response' in locals() else 'No response'}")
-            logging.error(f"Response content: {response.text if 'response' in locals() else 'No response'}")
+            logging.error(f"Response status code: {response.status_code if response else 'No response'}")
+            logging.error(f"Response content: {response.text if response else 'No response'}")
             raise
 
     # Retrieves all quality profiles from the instance
-    def get_quality_profiles(self) -> List[Dict]:
+    def get_quality_profiles(self) -> list[QualityProfile]:
         try:
             response = self.session.get(f'{self.base_url}/api/v3/qualityprofile')
             response.raise_for_status()
-            return response.json()
+            return cast(list[QualityProfile], response.json())
         except requests.RequestException as e:
             logging.error(f"Error fetching quality profiles: {e}")
             raise
 
     # Updates a specific quality profile
-    def update_quality_profile(self, profile: Dict) -> Dict:
+    def update_quality_profile(self, profile: QualityProfile) -> QualityProfile:
         try:
             url = f'{self.base_url}/api/v3/qualityprofile/{profile["id"]}'
             response = self.session.put(url, json=profile)
             response.raise_for_status()
-            return response.json()
+            return cast(QualityProfile, response.json())
         except requests.RequestException as e:
             logging.error(f"Error updating quality profile: {e}")
             raise
@@ -113,26 +162,29 @@ class APIClient:
 # Manages the synchronization of custom formats
 class CustomFormatSyncer:
     def __init__(self, custom_formats_dir: str):
-        self.custom_formats_dir = custom_formats_dir
-        self.version_manager = VersionManager()
+        self.custom_formats_dir: str = custom_formats_dir
+        self.version_manager: VersionManager = VersionManager()
 
     # Loads all custom format JSON files from the specified directory
-    def load_custom_formats(self) -> Dict[str, Dict]:
-        custom_formats = {}
+    def load_custom_formats(self) -> dict[str, FormatData]:
+        custom_formats: dict[str, FormatData] = {}
+        current_filename = ""
         try:
             for filename in os.listdir(self.custom_formats_dir):
+                current_filename = filename
                 if filename.endswith('.json'):
                     with open(os.path.join(self.custom_formats_dir, filename), 'r') as f:
-                        custom_formats[filename] = json.load(f)
+                        format_data = cast(FormatData, json.load(f))
+                        custom_formats[filename] = format_data
             return custom_formats
         except json.JSONDecodeError as e:
-            logging.error(f"Error parsing custom format file {filename}: {str(e)}")
+            logging.error(f"Error parsing custom format file {current_filename}: {str(e)}")
             raise
         except Exception as e:
             logging.error(f"Error loading custom formats: {str(e)}")
             raise
 
-    def sync_custom_formats(self, instances: List[Tuple[str, str, str]]):
+    def sync_custom_formats(self, instances: list[tuple[str, str, str]]) -> None:
         try:
             custom_formats = self.load_custom_formats()
             if not custom_formats:
@@ -148,7 +200,8 @@ class CustomFormatSyncer:
                 if filename == '_template.json':
                     continue
                 try:
-                    version = semver.VersionInfo.parse(format_data.get('cfSync_version', '0.0.0'))
+                    version_str = format_data.get('cfSync_version', '0.0.0')
+                    version = semver.VersionInfo.parse(version_str)
                     if version > latest_version:
                         latest_version = version
                 except ValueError as e:
@@ -162,7 +215,8 @@ class CustomFormatSyncer:
                         logging.info("Skipping _template.json")
                         continue
 
-                    file_version = semver.VersionInfo.parse(format_data.get('cfSync_version', '0.0.0'))
+                    version_str = format_data.get('cfSync_version', '0.0.0')
+                    file_version = semver.VersionInfo.parse(version_str)
                     stored_version = self.version_manager.versions.get(filename, semver.VersionInfo.parse('0.0.0'))
 
                     # Sync if:
@@ -184,7 +238,8 @@ class CustomFormatSyncer:
                                 synced_format = self.sync_format(client, existing_formats, formatted_custom_format)
                                 
                                 if synced_format and 'cfSync_score' in format_data:
-                                    self.sync_format_score(client, synced_format, format_data['cfSync_score'])
+                                    score = format_data['cfSync_score']
+                                    self.sync_format_score(client, synced_format, score)
                                 
                                 logging.info(f"Synced {filename} to {instance_name}")
                             except requests.RequestException as e:
@@ -208,41 +263,61 @@ class CustomFormatSyncer:
             raise
 
     # Determines if a custom format should be synced to a specific instance
-    def should_sync_to_instance(self, format_data: Dict, instance_name: str) -> bool:
+    def should_sync_to_instance(self, format_data: FormatData, instance_name: str) -> bool:
         if 'cfSync_instances' in format_data:
             # Extract the instance number (e.g., "003" from "Radarr_003")
             instance_number = instance_name.split('_')[-1]
-            return instance_name in format_data['cfSync_instances'] or instance_number in format_data['cfSync_instances']
+            instances = format_data.get('cfSync_instances', [])
+            return instance_name in instances or instance_number in instances
         else:
             # Determine if it's a Radarr or Sonarr instance
-            instance_type = 'radarr' if 'Radarr' in instance_name else 'sonarr'
+            instance_type: Literal['radarr', 'sonarr'] = 'radarr' if 'Radarr' in instance_name else 'sonarr'
             return format_data.get(f'cfSync_{instance_type}', True)
 
     # Prepares a custom format for syncing by extracting relevant fields
-    def prepare_format_for_sync(self, format_data: Dict) -> Dict:
+    def prepare_format_for_sync(self, format_data: FormatData) -> FormatDict:
         # Extract only the necessary fields for syncing
-        return {
-            "name": format_data.get("name"),
-            "includeCustomFormatWhenRenaming": format_data.get("includeCustomFormatWhenRenaming", False),
-            "specifications": format_data.get("specifications", [])
-        }
+        result = FormatDict()
+        result["name"] = format_data.get("name", "")
+        result["includeCustomFormatWhenRenaming"] = format_data.get("includeCustomFormatWhenRenaming", False)
+        
+        # Explicitly handle specifications to avoid type issues
+        if "specifications" in format_data:
+            result["specifications"] = format_data["specifications"]
+            
+        return result
 
     # Syncs a single custom format to an instance
-    def sync_format(self, client: APIClient, existing_formats: List[Dict], new_format: Dict) -> Dict:
-        existing_format = next((f for f in existing_formats if f['name'] == new_format['name']), None)
+    def sync_format(self, client: APIClient, existing_formats: list[CustomFormat], new_format: FormatDict) -> CustomFormat | None:
+        existing_format = next((f for f in existing_formats if f.get('name') == new_format.get('name')), None)
         
         # Ensure correct format for specifications
-        for spec in new_format.get('specifications', []):
-            if isinstance(spec.get('fields'), dict):
-                spec['fields'] = [{"name": "value", "value": spec['fields']['value']}]
-            elif isinstance(spec.get('fields'), list):
-                spec['fields'] = [
-                    {"name": field.get('name', 'value'), "value": field.get('value')} if isinstance(field, dict) else field
-                    for field in spec['fields']
-                ]
-            else:
-                logging.error(f"Invalid fields format for specification: {spec}")
-                return None
+        if "specifications" in new_format:
+            specs_obj = new_format["specifications"]
+            if isinstance(specs_obj, list):
+                for spec_dict in specs_obj:
+                    if not isinstance(spec_dict, dict):
+                        continue
+                        
+                    if "fields" in spec_dict:
+                        fields_obj = spec_dict["fields"]
+                        if isinstance(fields_obj, dict):
+                            # Convert dict fields to list format
+                            field_value = str(fields_obj.get("value", ""))
+                            spec_dict["fields"] = [{"name": "value", "value": field_value}]
+                        elif isinstance(fields_obj, list):
+                            # Process list of fields
+                            field_list: list[dict[str, str]] = []
+                            for field_obj in fields_obj:
+                                if isinstance(field_obj, dict):
+                                    name = str(field_obj.get("name", "value"))
+                                    value = str(field_obj.get("value", ""))
+                                    field_list.append({"name": name, "value": value})
+                                # Skip non-dict fields to prevent type errors
+                            spec_dict["fields"] = field_list
+                        else:
+                            logging.error(f"Invalid fields format for specification: {spec_dict}")
+                            return None
         
         logging.info(f"Attempting to sync custom format: {json.dumps(new_format, indent=2)}")
 
@@ -253,41 +328,43 @@ class CustomFormatSyncer:
                     updated_format = client.update_custom_format(new_format)
                     logging.info(f"Updated custom format: {updated_format['name']}")
                     return updated_format
+                return existing_format
             else:
                 created_format = client.update_custom_format(new_format)
                 logging.info(f"Created new custom format: {created_format['name']}")
                 return created_format
         except requests.RequestException as e:
-            logging.error(f"Failed to sync custom format {new_format['name']}: {str(e)}")
+            logging.error(f"Failed to sync custom format {new_format.get('name', '')}: {str(e)}")
             raise
-        
-        return None
 
     # Updates the score of a custom format in all quality profiles
-    def sync_format_score(self, client: APIClient, custom_format: Dict, score: int):
+    def sync_format_score(self, client: APIClient, custom_format: CustomFormat, score: int) -> None:
         try:
             profiles = client.get_quality_profiles()
             for profile in profiles:
                 updated = False
+                format_id = custom_format['id']  # id is required in CustomFormat now
+                    
                 for format_item in profile.get('formatItems', []):
-                    if format_item['format'] == custom_format['id']:
+                    if format_item['format'] == format_id:
                         if format_item['score'] != score:
                             format_item['score'] = score
                             updated = True
                 
                 if updated:
-                    client.update_quality_profile(profile)
-                    logging.info(f"Updated score for {custom_format['name']} in profile {profile['name']}")
+                    updated_profile = client.update_quality_profile(profile)
+                    format_name = custom_format['name']  # name is required in CustomFormat now
+                    logging.info(f"Updated score for {format_name} in profile {updated_profile['name']}")
         
         except requests.RequestException as e:
             logging.error(f"Error syncing format score: {str(e)}")
             raise
 
 # Main execution function
-def main():
+def main() -> None:
     custom_formats_dir = 'custom_formats'
     
-    instances = []
+    instances: list[tuple[str, str, str]] = []
     
     # Dynamically load Radarr instances
     radarr_count = 1

@@ -5,58 +5,62 @@ on:
     branches:
       - main
     paths:
-      - 'custom_formats/**'
+      - "custom_formats/**"
   schedule:
-    - cron: '0 0 * * *'  # Run daily at midnight UTC
-  workflow_dispatch:  # Allows manual trigger
+    - cron: "0 0 * * *" # Run daily at midnight UTC
+  workflow_dispatch: # Allows manual trigger
 
 jobs:
   sync:
     runs-on: ubuntu-latest
     if: "!contains(github.event.head_commit.message, '[skip ci]')"
-    
+
     steps:
-    - name: Check out repository
-      uses: actions/checkout@v4
+      - name: Check out repository
+        uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.13'
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
 
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
+      - name: Install the latest version of uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
 
-    - name: Run sync script
-      env:
-        RADARR_001_URL: ${{ secrets.RADARR_001_URL }}
-        RADARR_001_API_KEY: ${{ secrets.RADARR_001_API_KEY }}
-        RADARR_002_URL: ${{ secrets.RADARR_002_URL }}
-        RADARR_002_API_KEY: ${{ secrets.RADARR_002_API_KEY }}
-        RADARR_003_URL: ${{ secrets.RADARR_003_URL }}
-        RADARR_003_API_KEY: ${{ secrets.RADARR_003_API_KEY }}
-        SONARR_001_URL: ${{ secrets.SONARR_001_URL }}
-        SONARR_001_API_KEY: ${{ secrets.SONARR_001_API_KEY }}
-        SONARR_002_URL: ${{ secrets.SONARR_002_URL }}
-        SONARR_002_API_KEY: ${{ secrets.SONARR_002_API_KEY }}
-        SONARR_003_URL: ${{ secrets.SONARR_003_URL }}
-        SONARR_003_API_KEY: ${{ secrets.SONARR_003_API_KEY }}
-      run: |
-        python sync_script.py
-        if [ $? -ne 0 ]; then
-          echo "Sync script failed"
-          exit 1
-        fi
+      - name: Install dependencies with uv
+        run: |
+          uv pip install -r requirements.txt
 
-    - name: Commit version changes
-      if: success()
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: |
-        git config --local user.name "github-actions[bot]"
-        git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
-        git add version.json
-        git commit -m "Update version after sync [skip ci]" || exit 0
-        git push origin HEAD
+      - name: Run sync script
+        env:
+          RADARR_001_URL: ${{ secrets.RADARR_001_URL }}
+          RADARR_001_API_KEY: ${{ secrets.RADARR_001_API_KEY }}
+          RADARR_002_URL: ${{ secrets.RADARR_002_URL }}
+          RADARR_002_API_KEY: ${{ secrets.RADARR_002_API_KEY }}
+          RADARR_003_URL: ${{ secrets.RADARR_003_URL }}
+          RADARR_003_API_KEY: ${{ secrets.RADARR_003_API_KEY }}
+          SONARR_001_URL: ${{ secrets.SONARR_001_URL }}
+          SONARR_001_API_KEY: ${{ secrets.SONARR_001_API_KEY }}
+          SONARR_002_URL: ${{ secrets.SONARR_002_URL }}
+          SONARR_002_API_KEY: ${{ secrets.SONARR_002_API_KEY }}
+          SONARR_003_URL: ${{ secrets.SONARR_003_URL }}
+          SONARR_003_API_KEY: ${{ secrets.SONARR_003_API_KEY }}
+        run: |
+          python sync_script.py
+          if [ $? -ne 0 ]; then
+            echo "Sync script failed"
+            exit 1
+          fi
+
+      - name: Commit version changes
+        if: success()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config --local user.name "github-actions[bot]"
+          git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add version.json
+          git commit -m "Update version after sync [skip ci]" || exit 0
+          git push origin HEAD
