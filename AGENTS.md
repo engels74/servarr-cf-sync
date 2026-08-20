@@ -1,0 +1,100 @@
+# AGENTS.md
+
+This file provides guidance to AI coding agents when working with code in this
+repository.
+
+A GitHub Actions syncer that pushes Radarr/Sonarr custom formats (JSON files in
+`custom_formats/`) to live *arr instances. All logic lives in `sync_script.py`.
+
+There is **no test suite and no lint, format, type-check, or coverage config** in this
+repo — do not invent or run those commands.
+
+## Running it
+
+Run from the repository root; `sync_script.py:365` and `VersionManager`'s default resolve
+`custom_formats` and `version.json` as relative paths.
+
+```bash
+uv pip install --system -r requirements.txt   # matches CI exactly
+python sync_script.py                         # needs live instance credentials in env
+```
+
+With no `RADARR_*`/`SONARR_*` pair in the environment the script exits 1 at
+`sync_script.py:393-395` before reading any format file — a bare run only proves the
+module imports. There is no offline validation mode.
+
+`requirements.txt` pins nothing on purpose; Renovate owns upgrades (`renovate.json`).
+Don't hand-pin versions.
+
+## Instance configuration
+
+`main()` reads `RADARR_{n:03d}_URL` / `RADARR_{n:03d}_API_KEY` from `001` upward and
+**stops at the first missing pair** (`sync_script.py:370-387`) — `RADARR_003` without a
+`RADARR_002` is never loaded.
+
+Adding an instance takes **two** edits: the repository secret, *and* a matching entry in
+the `env:` block of `.github/workflows/sync-custom-formats.yml`, which currently wires
+only `001`–`003`. Setting the secret alone silently does nothing.
+
+Instance type is inferred from the name string — `'radarr' if 'Radarr' in instance_name
+else 'sonarr'` (`sync_script.py:274`). Changing the naming scheme in `main()` breaks both
+that check and the `cfSync_instances` suffix match.
+
+## Custom formats
+
+Any `*.json` in `custom_formats/` is picked up automatically — there is no registry.
+`_template.json` is excluded by exact filename (`sync_script.py:200`, `:214`); copy it
+rather than writing a format from scratch. Names are kebab-case with a target suffix
+(`block-german-dl-both.json`, `scenegroups-movies.json`).
+
+- **Only three fields reach the API.** `prepare_format_for_sync`
+  (`sync_script.py:278-288`) forwards `name`, `includeCustomFormatWhenRenaming`, and
+  `specifications`. Any other Servarr field added to the JSON is silently dropped — to
+  send more, extend that method.
+- **`name` is the match key** (`sync_script.py:292`). Renaming a format creates a second
+  one on the instance instead of updating the first; rename it on the instance too, or
+  accept the duplicate.
+- **`specifications[].fields` is a dict on disk** — `{"value": "..."}` — normalised into
+  the API's `[{"name", "value"}]` list at `sync_script.py:302-317`. Write the dict form
+  like the template; the `Specification` TypedDict (`sync_script.py:27-32`) describes the
+  post-normalisation API shape, not the file shape.
+- `cfSync_instances` **overrides** `cfSync_radarr`/`cfSync_sonarr` entirely
+  (`sync_script.py:267-275`). It accepts `"Radarr_003"` or a bare `"003"` — the bare form
+  matches *both* `Radarr_003` and `Sonarr_003`.
+
+## Version state
+
+`version.json` is machine-written by `VersionManager` and committed back by CI as
+`Update version after sync [skip ci]`. Never hand-edit it — bump `cfSync_version` in the
+format file instead.
+
+Two conditions trigger a sync (`sync_script.py:225`): the file's version is newer than the
+stored one, **or** the file's version is lower than the highest `cfSync_version` across
+all format files. The second means a file left behind the others re-syncs and warns on
+every run — bump versions together rather than pushing one file far ahead.
+
+Version state advances even after partial failure: a per-instance `requests` error is
+logged and skipped (`sync_script.py:245-247`), then `update_version` runs unconditionally
+(`sync_script.py:249`). The failed instance is not retried next run unless you bump
+`cfSync_version` again.
+
+## Other footguns
+
+- `sync_format_score` only rewrites `formatItems` entries whose id already matches
+  (`sync_script.py:348-352`); it never appends. A quality profile that has not yet picked
+  up the format is left untouched.
+- The workflow is skipped whenever the head commit message contains `[skip ci]` — that is
+  how the bot's own version commit avoids looping, and how to mark a commit that must not
+  hit live instances.
+- The workflow's push trigger only watches `custom_formats/**`. Changes to
+  `sync_script.py` do not run a sync until the daily cron or a `workflow_dispatch`.
+
+## Reference files
+
+- `custom_formats/README.md` — every `cfSync_*` field plus a complete worked example.
+  Read before authoring or editing a custom format.
+- `custom_formats/_template.json` — copy as the starting point for a new format.
+- `.github/workflows/sync-custom-formats.yml` — triggers, Python version (3.14), and the
+  wired instance secrets. Read when changing any of those.
+- `README.md` — user-facing setup and wiki links. Read when changing anything that affects
+  how forkers configure the repository.
