@@ -161,3 +161,8 @@ cython_debug/
 
 # IDE rules
 .aiderules
+# Local validation artifacts
+.venv/
+__pycache__/
+*.pyc
+.ruff_cache/

@@ -1,66 +1,86 @@
 name: Sync Custom Formats
-
-on:
+'on':
   push:
     branches:
-      - main
+    - main
     paths:
-      - "custom_formats/**"
+    - custom_formats/**
   schedule:
-    - cron: "0 0 * * *" # Run daily at midnight UTC
-  workflow_dispatch: # Allows manual trigger
-
+  - cron: 0 0 * * *
+  workflow_dispatch: null
 jobs:
   sync:
-    runs-on: ubuntu-latest
-    if: "!contains(github.event.head_commit.message, '[skip ci]')"
-
+    runs-on: ubuntu-24.04
+    if: github.ref_name == github.event.repository.default_branch && !contains(github.event.head_commit.message,
+      '[skip ci]')
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v6
-
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.14"
-
-      - name: Install the latest version of uv
-        uses: astral-sh/setup-uv@v7
-        with:
-          enable-cache: true
-
-      - name: Install dependencies with uv
-        run: |
-          uv pip install --system -r requirements.txt
-
-      - name: Run sync script
-        env:
-          RADARR_001_URL: ${{ secrets.RADARR_001_URL }}
-          RADARR_001_API_KEY: ${{ secrets.RADARR_001_API_KEY }}
-          RADARR_002_URL: ${{ secrets.RADARR_002_URL }}
-          RADARR_002_API_KEY: ${{ secrets.RADARR_002_API_KEY }}
-          RADARR_003_URL: ${{ secrets.RADARR_003_URL }}
-          RADARR_003_API_KEY: ${{ secrets.RADARR_003_API_KEY }}
-          SONARR_001_URL: ${{ secrets.SONARR_001_URL }}
-          SONARR_001_API_KEY: ${{ secrets.SONARR_001_API_KEY }}
-          SONARR_002_URL: ${{ secrets.SONARR_002_URL }}
-          SONARR_002_API_KEY: ${{ secrets.SONARR_002_API_KEY }}
-          SONARR_003_URL: ${{ secrets.SONARR_003_URL }}
-          SONARR_003_API_KEY: ${{ secrets.SONARR_003_API_KEY }}
-        run: |
-          python sync_script.py
-          if [ $? -ne 0 ]; then
-            echo "Sync script failed"
-            exit 1
+    - uses: actions/checkout@v7.0.1
+      with:
+        ref: ${{ github.event.repository.default_branch }}
+        persist-credentials: false
+    - uses: actions/setup-python@v7.0.0
+      with:
+        python-version: '3.14'
+    - uses: astral-sh/setup-uv@v10.0.1
+      with:
+        # renovate: datasource=github-releases depName=astral-sh/uv
+        version: 0.12.10
+        enable-cache: true
+    - name: Validate the selected code and format data before live sync
+      run: |-
+        bash .github/scripts/check.sh
+        git diff --exit-code HEAD
+    - name: Run sync script
+      env:
+        RADARR_001_URL: ${{ secrets.RADARR_001_URL }}
+        RADARR_001_API_KEY: ${{ secrets.RADARR_001_API_KEY }}
+        RADARR_002_URL: ${{ secrets.RADARR_002_URL }}
+        RADARR_002_API_KEY: ${{ secrets.RADARR_002_API_KEY }}
+        RADARR_003_URL: ${{ secrets.RADARR_003_URL }}
+        RADARR_003_API_KEY: ${{ secrets.RADARR_003_API_KEY }}
+        SONARR_001_URL: ${{ secrets.SONARR_001_URL }}
+        SONARR_001_API_KEY: ${{ secrets.SONARR_001_API_KEY }}
+        SONARR_002_URL: ${{ secrets.SONARR_002_URL }}
+        SONARR_002_API_KEY: ${{ secrets.SONARR_002_API_KEY }}
+        SONARR_003_URL: ${{ secrets.SONARR_003_URL }}
+        SONARR_003_API_KEY: ${{ secrets.SONARR_003_API_KEY }}
+      run: .venv/bin/python sync_script.py
+    - name: Propose generated version checkpoint
+      id: checkpoint
+      uses: peter-evans/create-pull-request@v8.1.1
+      with:
+        token: ${{ github.token }}
+        base: ${{ github.event.repository.default_branch }}
+        branch: fix/update-sync-checkpoint
+        add-paths: version.json
+        commit-message: 'chore(sync): update generated version checkpoint'
+        signoff: true
+        title: 'chore(sync): update generated version checkpoint'
+        body: Record the syncer-generated version checkpoint. The offline development suite runs before
+          the live sync; full CI is dispatched on this exact PR SHA. This records the existing syncer
+          behavior and does not guarantee that every instance accepted every format.
+    - name: Validate the exact checkpoint PR commit
+      if: steps.checkpoint.outputs.pull-request-number != ''
+      env:
+        GH_TOKEN: ${{ github.token }}
+        CHECKPOINT_PR: ${{ steps.checkpoint.outputs.pull-request-number }}
+        CHECKPOINT_SHA: ${{ steps.checkpoint.outputs.pull-request-head-sha }}
+      run: |
+        set -euo pipefail
+        for attempt in 1 2 3; do
+          if gh workflow run ci.yml --ref fix/update-sync-checkpoint \
+            -f pr-number="$CHECKPOINT_PR" -f expected-head-sha="$CHECKPOINT_SHA"; then
+            exit 0
           fi
-
-      - name: Commit version changes
-        if: success()
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          git config --local user.name "github-actions[bot]"
-          git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add version.json
-          git commit -m "Update version after sync [skip ci]" || exit 0
-          git push origin HEAD
+          sleep "$((attempt * 2))"
+        done
+        echo "::error::CI dispatch failed. Run ci.yml on fix/update-sync-checkpoint with pr-number=$CHECKPOINT_PR and expected-head-sha=$CHECKPOINT_SHA."
+        exit 1
+    timeout-minutes: 20
+permissions:
+  contents: write
+  pull-requests: write
+  actions: write
+concurrency:
+  group: live-format-sync
+  cancel-in-progress: false

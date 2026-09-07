@@ -6,6 +6,9 @@ import semver
 import sys
 from typing import TypedDict, cast, NotRequired, Literal
 
+# JSON serialization boundary for requests; TypedDicts are structurally open.
+type JsonValue = str | int | float | bool | None | list[JsonValue] | dict[str, JsonValue]
+
 # Set up logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
@@ -133,10 +136,10 @@ class APIClient:
             # Determine if we're updating an existing format or creating a new one
             if "id" in custom_format:
                 url = f"{self.base_url}/api/v3/customformat/{custom_format['id']}"
-                response = self.session.put(url, json=custom_format)
+                response = self.session.put(url, json=cast(JsonValue, custom_format))
             else:
                 url = f"{self.base_url}/api/v3/customformat"
-                response = self.session.post(url, json=custom_format)
+                response = self.session.post(url, json=cast(JsonValue, custom_format))
 
             logging.debug(f"Payload being sent: {json.dumps(custom_format, indent=2)}")
             response.raise_for_status()
@@ -163,7 +166,7 @@ class APIClient:
     def update_quality_profile(self, profile: QualityProfile) -> QualityProfile:
         try:
             url = f"{self.base_url}/api/v3/qualityprofile/{profile['id']}"
-            response = self.session.put(url, json=profile)
+            response = self.session.put(url, json=cast(JsonValue, profile))
             response.raise_for_status()
             return cast(QualityProfile, response.json())
         except requests.RequestException as e:
