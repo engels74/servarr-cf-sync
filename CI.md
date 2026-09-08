@@ -17,12 +17,21 @@ format JSON/semver contracts. All fixture state is temporary; unexpected externa
 HTTP fails. The only source edits are AST-equivalent formatting and explicit JSON
 serialization type boundaries; synchronization behavior and format data are preserved.
 
-`requirements.in` preserves the application dependency declarations;
+`requirements.in` pins the tested application dependencies;
 `requirements-dev.in` adds validation tools. Both `.txt` lockfiles are generated
-by `uv pip compile --python 3.14 --generate-hashes`, maintained by Renovate's
+by `uv pip compile --python-version=3.14 --generate-hashes`, maintained by Renovate's
 pip-compile manager and consumed with `--require-hashes`. The shared versioned
 preset supplies common grouping; automerge is off pending the pre-1.0 preset
 correction and activation. Full action version tags and uv versions are bot-managed.
+Use the full option names with equals signs so Renovate can parse the generated headers:
+
+```sh
+uv pip compile --python-version=3.14 --generate-hashes requirements.in --output-file=requirements.txt
+uv pip compile --python-version=3.14 --generate-hashes requirements-dev.in --output-file=requirements-dev.txt
+```
+
+Direct pins let Renovate classify each upgrade; weekly lockfile maintenance does not
+silently upgrade unconstrained direct dependencies across major versions.
 
 The existing live sync keeps its scheduled, manual and format-change triggers,
 default-branch restriction, configured instance secrets and skip-ci escape hatch.
